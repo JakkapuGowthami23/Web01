@@ -3,7 +3,7 @@ name: Deploy to AWS EC2
 on:
   push:
     branches:
-      - main  # Triggers workflow on push to main branch
+      - main  # Triggers workflow on push to the main branch
 
 jobs:
   deploy:
@@ -16,7 +16,7 @@ jobs:
     - name: Set up Node.js
       uses: actions/setup-node@v3
       with:
-        node-version: '16'  # Use a supported version
+        node-version: '16'  # Use Node.js 16 or later
 
     - name: Install Dependencies
       run: npm install
@@ -25,7 +25,9 @@ jobs:
       run: npm test
 
     - name: Run Integration Tests
-      run: npm run test:integration
+      run: |
+        echo "Running integration tests..."
+        npm run test:integration || (echo "Integration tests failed!" && exit 1)
 
     - name: Ensure Docker is Running
       run: sudo systemctl start docker || true  # Ensure Docker daemon is running
@@ -43,7 +45,7 @@ jobs:
         docker run -d -p 8080:80 --name my-html-container my-html-app
 
     - name: Wait for Container to Initialize
-      run: sleep 15
+      run: sleep 30  # Increased wait time to ensure Nginx starts
 
     - name: Check Running Containers
       run: |
@@ -52,4 +54,10 @@ jobs:
 
     - name: Verify Deployment
       run: |
-        curl -s -o /dev/null -w "%{http_code}" http://localhost:8080 | grep 200 && echo "Deployment Successful" || (echo "Deployment Failed" && exit 1)
+        echo "Checking if the web server is running..."
+        RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8080)
+        if [[ "$RESPONSE" -ne 200 ]]; then
+          echo "Deployment Failed! Expected HTTP 200, got $RESPONSE"
+          exit 1
+        fi
+        echo "Deployment Successful!"
